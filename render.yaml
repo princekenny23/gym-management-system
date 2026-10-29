@@ -1,0 +1,44 @@
+databases:
+  - name: primegym-db
+    databaseName: primegym
+    user: primegym
+
+services:
+  - type: web
+    name: primegym-api
+    runtime: python
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt && python manage.py collectstatic --noinput
+    startCommand: python manage.py migrate --noinput && gunicorn primegym.wsgi:application --bind 0.0.0.0:$PORT
+    healthCheckPath: /api/auth/csrf/
+    envVars:
+      - key: DJANGO_SECRET_KEY
+        generateValue: true
+      - key: DJANGO_DEBUG
+        value: "false"
+      - key: DJANGO_ALLOWED_HOSTS
+        value: primegym-api.onrender.com
+      - key: DB_NAME
+        fromDatabase:
+          name: primegym-db
+          property: database
+      - key: DB_USER
+        fromDatabase:
+          name: primegym-db
+          property: user
+      - key: DB_PASSWORD
+        fromDatabase:
+          name: primegym-db
+          property: password
+      - key: DB_HOST
+        fromDatabase:
+          name: primegym-db
+          property: host
+      - key: DB_PORT
+        fromDatabase:
+          name: primegym-db
+          property: port
+      - key: FRONTEND_ORIGIN
+        value: https://your-project.vercel.app
+      - key: CSRF_TRUSTED_ORIGINS
+        value: https://your-project.vercel.app
