@@ -42,7 +42,7 @@ The Next.js development server permits HMR requests from the configured LAN orig
 
 The deployment uses a Render PostgreSQL database and Django API, with the Next.js frontend hosted on Vercel. The root `render.yaml` defines the Render services. Connect the project repository to both platforms before starting.
 
-1. In Render, create a **Blueprint** from the repository and apply `render.yaml`. This creates the PostgreSQL database and Django web service. Wait for the API service to deploy; its URL is `https://primegym-api.onrender.com`.
+1. In Render, create a **Blueprint** from the repository and apply `render.yaml`. This creates the PostgreSQL database and Django web service, wiring the database's internal connection string to `DATABASE_URL`. If you already created the API service manually, sync it with the Blueprint or set `DATABASE_URL` to the database's internal connection string in the API service's environment settings. Wait for the API service to deploy; its URL is `https://primegym-api.onrender.com`.
 2. In Vercel, import the same repository and set **Root Directory** to `frontend`. Keep the detected Next.js framework and build settings. Add this environment variable for **Production**, **Preview**, and **Development**:
 
    ```text

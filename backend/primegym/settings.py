@@ -1,6 +1,7 @@
 import os
 from pathlib import Path
 
+import dj_database_url
 from dotenv import load_dotenv
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -69,19 +70,31 @@ TEMPLATES = [
 ]
 WSGI_APPLICATION = "primegym.wsgi.application"
 
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.postgresql",
-        "NAME": os.getenv("DB_NAME", ""),
-        "USER": os.getenv("DB_USER", ""),
-        "PASSWORD": os.getenv("DB_PASSWORD", ""),
-        "HOST": os.getenv("DB_HOST", "localhost"),
-        "PORT": os.getenv("DB_PORT", "5432"),
-        "CONN_MAX_AGE": 60,
+DATABASE_URL = os.getenv("DATABASE_URL")
+if DATABASE_URL:
+    DATABASES = {
+        "default": dj_database_url.parse(
+            DATABASE_URL,
+            conn_max_age=60,
+            ssl_require=not DEBUG,
+        )
     }
-}
-if not DATABASES["default"]["NAME"] or not DATABASES["default"]["USER"]:
-    raise RuntimeError("DB_NAME and DB_USER must be configured in backend/.env.")
+else:
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.postgresql",
+            "NAME": os.getenv("DB_NAME", ""),
+            "USER": os.getenv("DB_USER", ""),
+            "PASSWORD": os.getenv("DB_PASSWORD", ""),
+            "HOST": os.getenv("DB_HOST", "localhost"),
+            "PORT": os.getenv("DB_PORT", "5432"),
+            "CONN_MAX_AGE": 60,
+        }
+    }
+    if not DATABASES["default"]["NAME"] or not DATABASES["default"]["USER"]:
+        raise RuntimeError(
+            "Configure DATABASE_URL or DB_NAME and DB_USER in backend/.env."
+        )
 
 LANGUAGE_CODE = "en"
 TIME_ZONE = "Africa/Blantyre"
