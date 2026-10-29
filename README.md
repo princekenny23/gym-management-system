@@ -7,7 +7,7 @@ The project is split into `frontend/` (Next.js) and `backend/` (Django REST Fram
 Requirements: Node.js/npm, Python 3.11 or newer, and PostgreSQL running locally.
 
 1. Create a PostgreSQL database named `primegym` if it does not already exist.
-2. Copy `backend/.env.example` to `backend/.env`, then set the database password and a private Django secret key. Keep this file local; it is ignored by Git.
+2. Copy `backend/.env.example` to `backend/.env`, then set the database URL with your local PostgreSQL credentials and a private Django secret key. URL-encode any special characters in the database username or password. Keep this file local; it is ignored by Git.
 3. From the project root, install and start the backend:
 
    ```powershell
