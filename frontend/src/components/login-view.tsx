@@ -1,43 +1,15 @@
 "use client";
 
-import { useEffect, useState, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useGymData } from "@/components/gym-data-provider";
-import { apiFetch } from "@/lib/api-client";
-
-interface GymBranding {
-  gymName: string;
-  logoText: string;
-}
 
 export function LoginView() {
-  const { currentUser, authError, signIn } = useGymData();
-  const [branding, setBranding] = useState<GymBranding>({
-    gymName: "Gym",
-    logoText: "GYM",
-  });
+  const { currentUser, authError, signIn, settings } = useGymData();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
-
-  useEffect(() => {
-    let active = true;
-    apiFetch("/public/branding/")
-      .then(async (response) => {
-        if (!response.ok) throw new Error(`Gym branding request failed (${response.status}).`);
-        return (await response.json()) as GymBranding;
-      })
-      .then((data) => {
-        if (active) setBranding(data);
-      })
-      .catch((reason: unknown) => {
-        console.error("Could not load gym branding.", reason);
-      });
-    return () => {
-      active = false;
-    };
-  }, []);
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -57,8 +29,8 @@ export function LoginView() {
       <form onSubmit={submit} className="w-full max-w-md space-y-5 rounded-2xl border border-slate-200 bg-white p-7 shadow-sm">
         <div>
           <div className="flex items-center gap-3">
-            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-900 text-sm font-semibold text-white">{branding.logoText || "GYM"}</span>
-            <p className="text-sm font-medium text-slate-500">{branding.gymName || "Gym"}</p>
+            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-900 text-sm font-semibold text-white">{settings.logoText || "GYM"}</span>
+            <p className="text-sm font-medium text-slate-500">{settings.gymName || "Gym"}</p>
           </div>
           <h1 className="mt-1 text-2xl font-semibold text-slate-950">
             {currentUser ? "Already signed in" : "Sign in"}

@@ -35,6 +35,7 @@ interface GymDataContextValue extends GymData {
   currentUser: AuthUser | null;
   authReady: boolean;
   authError: string;
+  offlineStorage: boolean;
   signIn: (username: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
   setMembers: Dispatch<SetStateAction<Member[]>>;
@@ -69,6 +70,38 @@ const emptyData: GymData = {
   settings: emptySettings,
 };
 
+const localDataStorageKey = "primegym.local-data.v1";
+const localAdmin: AuthUser = {
+  id: 0,
+  username: "Local administrator",
+  email: "",
+  firstName: "Local",
+  lastName: "Administrator",
+  role: "administrator",
+  isActive: true,
+};
+
+function readLocalData(): GymData {
+  try {
+    const stored = window.localStorage.getItem(localDataStorageKey);
+    if (!stored) return emptyData;
+    const data = JSON.parse(stored) as Partial<GymData>;
+    if (
+      !Array.isArray(data.members) ||
+      !Array.isArray(data.plans) ||
+      !Array.isArray(data.memberships) ||
+      !Array.isArray(data.payments) ||
+      !Array.isArray(data.attendance) ||
+      !data.settings
+    ) {
+      return emptyData;
+    }
+    return { ...data, settings: { ...emptySettings, ...data.settings } } as GymData;
+  } catch {
+    return emptyData;
+  }
+}
+
 const GymDataContext = createContext<GymDataContextValue | null>(null);
 
 export function GymDataProvider({ children }: { children: ReactNode }) {
@@ -85,6 +118,7 @@ export function GymDataProvider({ children }: { children: ReactNode }) {
   const [authReady, setAuthReady] = useState(false);
   const [ready, setReady] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [offlineStorage, setOfflineStorage] = useState(false);
   const [reloadId, setReloadId] = useState(0);
   const [saveRevision, setSaveRevision] = useState(0);
 
@@ -158,6 +192,22 @@ export function GymDataProvider({ children }: { children: ReactNode }) {
         setAuthReady(true);
       } catch (error) {
         if (!active || controller.signal.aborted) return;
+        if (!authenticated && process.env.NODE_ENV === "development" && error instanceof TypeError) {
+          const data = readLocalData();
+          setMembers(data.members);
+          setPlans(data.plans);
+          setMemberships(data.memberships);
+          setPayments(data.payments);
+          setAttendance(data.attendance);
+          setSettings(data.settings);
+          setCurrentUser(localAdmin);
+          setOfflineStorage(true);
+          setLoadError("");
+          setAuthError("");
+          setReady(true);
+          setAuthReady(true);
+          return;
+        }
         console.error("Could not load gym records from the Django API.", error);
         const message = error instanceof Error ? error.message : "The Django API could not be reached.";
         if (!authenticated) setAuthError(message);
@@ -175,6 +225,20 @@ export function GymDataProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!ready || !currentUser || currentUser.role === "member") return;
+    if (offlineStorage) {
+      const timeout = window.setTimeout(() => {
+        try {
+          window.localStorage.setItem(
+            localDataStorageKey,
+            JSON.stringify({ members, plans, memberships, payments, attendance, settings }),
+          );
+          setSaveError("");
+        } catch {
+          setSaveError("Browser storage is unavailable or full.");
+        }
+      }, 0);
+      return () => window.clearTimeout(timeout);
+    }
     const controller = new AbortController();
     const timeout = window.setTimeout(async () => {
       setSaving(true);
@@ -199,10 +263,16 @@ export function GymDataProvider({ children }: { children: ReactNode }) {
       window.clearTimeout(timeout);
       controller.abort();
     };
-  }, [attendance, currentUser, memberships, payments, plans, ready, saveRevision, settings, members]);
+  }, [attendance, currentUser, memberships, offlineStorage, payments, plans, ready, saveRevision, settings, members]);
 
   const signIn = useCallback(async (username: string, password: string) => {
     setAuthError("");
+    if (offlineStorage) {
+      setCurrentUser({ ...localAdmin, username: username || localAdmin.username });
+      setReady(true);
+      setAuthReady(true);
+      return;
+    }
     const response = await apiFetch("/auth/login/", {
       method: "POST",
       body: JSON.stringify({ username, password }),
@@ -211,16 +281,23 @@ export function GymDataProvider({ children }: { children: ReactNode }) {
     setCurrentUser((await response.json()) as AuthUser);
     setReady(false);
     setReloadId((id) => id + 1);
-  }, []);
+  }, [offlineStorage]);
 
   const signOut = useCallback(async () => {
+    if (offlineStorage) {
+      setCurrentUser(null);
+      setReady(false);
+      setLoadError("");
+      setSaveError("");
+      return;
+    }
     const response = await apiFetch("/auth/logout/", { method: "POST" });
     if (!response.ok) throw new Error(await responseError(response));
     setCurrentUser(null);
     setReady(false);
     setLoadError("");
     setSaveError("");
-  }, []);
+  }, [offlineStorage]);
 
   const value = useMemo(
     () => ({
@@ -228,6 +305,7 @@ export function GymDataProvider({ children }: { children: ReactNode }) {
       currentUser,
       authReady,
       authError,
+      offlineStorage,
       signIn,
       signOut,
       members,
@@ -245,12 +323,17 @@ export function GymDataProvider({ children }: { children: ReactNode }) {
       saving,
       retrySave: () => setSaveRevision((revision) => revision + 1),
     }),
-    [attendance, authError, authReady, currentUser, members, memberships, payments, plans, saving, settings, signIn, signOut],
+    [attendance, authError, authReady, currentUser, members, memberships, offlineStorage, payments, plans, saving, settings, signIn, signOut],
   );
 
   return (
     <GymDataContext.Provider value={value}>
       {children}
+      {offlineStorage ? (
+        <div role="status" className="fixed bottom-4 left-4 z-50 max-w-sm rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950 shadow-lg">
+          Local development mode: changes are saved in this browser only.
+        </div>
+      ) : null}
       {!authReady || (currentUser && !ready) ? (
         <div className="fixed inset-0 z-[90] flex items-center justify-center bg-slate-100 p-6">
           <section className="w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">

@@ -1,6 +1,6 @@
 # Primex Gym Management System
 
-The project is split into `frontend/` (Next.js) and `backend/` (Django REST Framework). PostgreSQL is the source of truth; the browser does not seed or persist sample records.
+The project is split into `frontend/` (Next.js) and `backend/` (Django REST Framework). PostgreSQL is the source of truth when the API is available. During local development only, the frontend falls back to browser storage if Django cannot be reached.
 
 ## Local setup
 
@@ -30,6 +30,8 @@ Requirements: Node.js/npm, Python 3.11 or newer, and PostgreSQL running locally.
 
    Configure `NEXT_PUBLIC_API_URL` in `frontend/.env.local` to point to the Django API, normally `http://127.0.0.1:8000/api`. When a browser accesses the frontend by localhost or a LAN IP, a loopback API URL is automatically changed to that same browser hostname so session cookies remain same-site.
 
+   If Django is unavailable while running `npm run dev`, the frontend opens in local browser-storage mode and persists members, plans, memberships, payments, attendance, and gym settings in that browser. Staff accounts and member-portal features still require Django. Local browser data is not synchronized to the database when the API returns; export or copy any needed records before switching modes.
+
 The API persists members, plans, memberships, payments, attendance, and gym settings. Snapshot writes use a database transaction; payment and attendance records are append-only, and membership balances must reconcile with recorded payments. Administrators can manage plans, gym settings, and staff. Receptionists can record operational data. Django enforces these permissions; hiding UI links is not the security boundary.
 
 Staff accounts can be created or disabled from the administrator-only **Staff & Users** page. Existing membership and membership-plan routes redirect to the tabs under **Members**.
@@ -40,7 +42,7 @@ The Next.js development server permits HMR requests from the configured LAN orig
 
 ## Deployment
 
-The deployment uses a Render PostgreSQL database and Django API, with the Next.js frontend hosted on Vercel. The root `render.yaml` defines the Render services. Connect the project repository to both platforms before starting.
+The deployment uses a Render PostgreSQL database and Django API, with the Next.js frontend hosted on Vercel. The root `render.yaml` defines the Render services. Connect the project repository to both platforms before starting. Browser-storage fallback is development-only; deployed builds continue to require the Django API and PostgreSQL.
 
 1. In Render, create a **Blueprint** from the repository and apply `render.yaml`. This creates the PostgreSQL database and Django web service, wiring the database's internal connection string to `DATABASE_URL`. If you already created the API service manually, sync it with the Blueprint or set `DATABASE_URL` to the database's internal connection string in the API service's environment settings. Wait for the API service to deploy; its URL is `https://primegym-api.onrender.com`.
 2. In Vercel, import the same repository and set **Root Directory** to `frontend`. Keep the detected Next.js framework and build settings. Add this environment variable for **Production**, **Preview**, and **Development**:
